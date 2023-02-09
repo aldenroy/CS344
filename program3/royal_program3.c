@@ -20,7 +20,7 @@
 char* args[max_num_args];
 int total_processes = 0;
 int is_background = 0;
-int foreground_only = 0;
+int foreground_only = 1;
 int status;
 //int processes[max_processes]; add once prof tells you this number
 
@@ -144,35 +144,36 @@ void exit_shell(){
     //set up later, but if there are processes, kill off each one in the array
 }
 
-void run_status(int* error_num){
-    //NEED TO FIX THIS WITH SIGNAL STUFF LATER
-	int error = 0;
-    int signal = 0;
-    int exitValue;
+void run_status(int *error_num) {
+    int exit_status = 0;
+    int signal_number = 0;
+    int exit_value = 0;
 
-	waitpid(getpid(), &status, 0);		// Check the status of the last process
+    int status;
+    waitpid(getpid(), &status, 0);
 
-	if(WIFEXITED(status)) 
-        error = WEXITSTATUS(status);	// Return the status of the normally terminated child
+    if (WIFEXITED(status)) {
+        exit_status = WEXITSTATUS(status);
+    }
+    if (WIFSIGNALED(status)) {
+        signal_number = WTERMSIG(status);
+    }
 
-    if(WIFSIGNALED(status)) 
-        signal = WTERMSIG(status);		// Return the status of an abnormally terminated child
-
-    if (error + signal == 0) {
-        exitValue = 0;
+    if (exit_status + signal_number == 0) {
+        exit_value = 0;
     } else {
-        exitValue = 1;
+        exit_value = 1;
     }
 
-    if(signal == 0){ 
-    	printf("exit value %d\n", exitValue);
-    }
-    else {
-    	*error_num = 1;
-    	printf("terminated by signal %d\n", signal);
+    if (signal_number == 0) {
+        printf("Exit value: %d\n", exit_value);
+    } else {
+        *error_num = 1;
+        printf("Terminated by signal: %d\n", signal_number);
     }
     fflush(stdout);
 }
+
 
 char* searchInPath(char* cmd) {
     char* path = getenv("PATH");
@@ -211,12 +212,13 @@ void execute_command(int num_args, int* error_num) {
             exit(1);
             break;
 
-        case 0:  // Child
+        case 0: //child case
             //search for the command in the PATH
             cmd = searchInPath(args[0]);
             //if the command was found, execute it using execvp
             if (cmd != NULL) {
                 execvp(cmd, args);
+                //I'm assuming execvp is fine, it works soooo.
             } else {
                 printf("%s: Command not found\n", args[0]);
                 fflush(stdout);
@@ -224,7 +226,7 @@ void execute_command(int num_args, int* error_num) {
             }
             break;
 
-        default:  // Parent
+        default: //parent case
             // If the command is not to be run in the background, wait for it to finish
             if (!is_background) {
                 waitpid(pid, &status, 0);
