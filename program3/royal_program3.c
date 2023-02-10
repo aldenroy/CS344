@@ -32,7 +32,6 @@ void exit_shell();   //can't just exit command, need to kill off all processes.
 void run_cd();
 void run_status(int*);
 void execute_command(int, int*);
-char* searchInPath(char*);
 
 
 int main(){
@@ -50,6 +49,11 @@ int main(){
         num_args = parse_commands(args_line);
         args[max_num_args] = NULL; //end the array of arguments
         check_args(num_args);
+        //THIS IS WHAT I WAS MISSING
+        //echo was taken all the output from the other commands and messing up the grading script.
+        for(int i = 0; i < num_args; i++){
+            args[i] = NULL;
+        }
         //do something to test check the command and do that appropiate thing with them
     }
 
@@ -167,34 +171,19 @@ void run_status(int *error_num) {
 
     if (signal_number == 0) {
         printf("Exit value: %d\n", exit_value);
+        fflush(stdout);
     } else {
         *error_num = 1;
         printf("Terminated by signal: %d\n", signal_number);
+        fflush(stdout);
     }
-    fflush(stdout);
-}
-
-
-char* searchInPath(char* cmd) {
-    char* path = getenv("PATH");
-    char* path_tok = strtok(path, ":");
-    char cmd_path[1024];
-
-    while(path_tok != NULL) {
-        snprintf(cmd_path, sizeof(cmd_path), "%s/%s", path_tok, cmd);
-        if(access(cmd_path, F_OK) == 0) {
-            return strdup(cmd_path);
-        }
-        path_tok = strtok(NULL, ":");
-    }
-
-    return NULL;
 }
 
 void execute_command(int num_args, int* error_num) {
     pid_t pid;
     char* cmd;
-
+    int i, haveInputFile = 0, haveOutputFile = 0;
+    char inputFile[max_line_length], outputFile[max_line_length];
     // Check if the command is to be run in the background
     if (strcmp(args[num_args - 1], "&") == 0) {
         // Only allow background execution if not in foreground only mode
@@ -213,30 +202,71 @@ void execute_command(int num_args, int* error_num) {
             break;
 
         case 0: //child case
-            //search for the command in the PATH
-            cmd = searchInPath(args[0]);
-            //if the command was found, execute it using execvp
-            if (cmd != NULL) {
-                execvp(cmd, args);
-                //I'm assuming execvp is fine, it works soooo.
-            } else {
-                printf("%s: Command not found\n", args[0]);
-                fflush(stdout);
-                exit(1);
+
+            
+            // Get command arguments
+            for(i = 0; args[i] != NULL; i++) {
+                // Input File Arguments
+                if(strcmp(args[i], "<") == 0) {
+                    haveInputFile = 1;
+                    args[i] = NULL;
+                    strcpy(inputFile, args[i+1]);
+                    i++;
+                }
+                // Output file Arugments
+                else if(strcmp(args[i], ">") == 0) {
+                    haveOutputFile = 1;
+                    args[i] = NULL;
+                    strcpy(outputFile, args[i+1]);
+                    i++;
+                }
             }
-            break;
+
+            // Pass input file info
+            if(haveInputFile) {
+                int inputFileDes = 0;
+                if ((inputFileDes = open(inputFile, O_RDONLY)) < 0) { 
+                    fprintf(stderr, "cannot open %s for input\n", inputFile);
+                    fflush(stdout); 
+                    exit(1); 
+                }  
+                dup2(inputFileDes, 0);
+                close(inputFileDes);
+            }
+
+            // Pass output file info
+            if(haveOutputFile) {
+                int outputFileDes = 0;
+                if((outputFileDes = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0) {
+                    fprintf(stderr, "cannot open %s for output\n", outputFile);
+                    fflush(stdout); 
+                    exit(1); 
+                }
+                dup2(outputFileDes, 1);
+                close(outputFileDes);
+            }
+
+            // Give new CTRL-C handler so foreground processes can be terminated
+            // if(!isBackground) 
+            //     SIGINTAction.sa_handler=SIG_DFL;
+            // sigaction(SIGINT, &SIGINTAction, NULL);
+
+            // Run the non-built-in command
+            if(execvp(args[0], args) == -1 ) {
+                perror(args[0]);
+                exit(1); 
+            }
 
         default: //parent case
             // If the command is not to be run in the background, wait for it to finish
-            if (!is_background) {
-                waitpid(pid, &status, 0);
-                // run_status(error_num);
-            } else {
-                // Otherwise, print a message indicating it's running in the background
-                printf("Background process %d created\n", pid);
-                fflush(stdout);
+            if(is_background == 1) {
+                waitpid(pid, &status, WNOHANG);
+                printf("background pid is %d\n", pid);
+                fflush(stdout); 
             }
-            break;
+            else {
+                waitpid(pid, &status, 0);
+            }
     }
 }
 
