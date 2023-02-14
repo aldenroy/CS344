@@ -22,8 +22,8 @@ int total_processes = 0;
 int is_background = 0;
 int foreground_only = 1;
 int status;
-struct sigaction sigint;	// SIGINT handler
-struct sigaction sigtstp; // SIGTSTP handler
+struct sigaction sigint;	// sigint struct
+struct sigaction sigtstp; // sigtstp struct
 //int processes[max_processes]; add once prof tells you this number
 
 //function prototypes
@@ -34,9 +34,7 @@ void exit_shell();   //can't just exit command, need to kill off all processes.
 void run_cd();
 void run_status(int*);
 void execute_command(int, int*);
-void handle_SIGTSTP();
-void childFork();
-void parentFork(pid_t);
+void sigtstp_func();
 
 int main(){
     //first things first set up loop to continue till exit status.
@@ -45,7 +43,7 @@ int main(){
     //go from there.
 
     //Set up signal masks
-	sigtstp.sa_handler = handle_SIGTSTP; 	// Direct SIGTSTP to the function handle_SIGTSTP()
+	sigtstp.sa_handler = sigtstp_func; 	// Direct SIGTSTP to the function sigtstp_func()
     sigtstp.sa_flags = SA_RESTART; 		// Make sure signals don't interrupt processes
     sigfillset(&sigtstp.sa_mask);			// Block all catchable signals
     sigaction(SIGTSTP, &sigtstp, NULL);	// Install signal handler
@@ -77,29 +75,24 @@ int main(){
     return 0;
 }
 
-void handle_SIGTSTP() {
+void sigtstp_func() {
 	char* statusMessage;		// String of the message to write to stdout
-	int statusMessageSize = -1;	// For write() messages must also state the number of characters
-	char* promptMessage = ": "; // Also write ': ' since for this case getCommands() won't print it
 	switch(foreground_only) {
 		case 0:
 			statusMessage = "\nExiting foreground-only mode\n";
-			statusMessageSize = 30;
 			foreground_only = 1;
 			break;
 		case 1:
 			statusMessage = "\nEntering foreground-only mode (& is now ignored)\n";
-			statusMessageSize = 50;
 			foreground_only = 0;
 			break;
 		default:
 			statusMessage = "\nError: allowBackground is not 0 or 1\n";
-			statusMessageSize = 38;
 			foreground_only = 1;
 	}
 	// Must use reentrant function for custom signal handlers
-	write(STDOUT_FILENO, statusMessage, statusMessageSize);
-	write(STDOUT_FILENO, promptMessage, 2);
+    printf("%s\n", statusMessage);
+    fflush(stdout);
 }
 
 
@@ -194,6 +187,7 @@ void exit_shell(){
 }
 
 void run_status(int *error_num) {
+    //fix status
     int exit_status = 0;
     int signal_number = 0;
     int exit_value = 0;
@@ -227,7 +221,6 @@ void run_status(int *error_num) {
 void execute_command(int num_args, int* error_num) {
     pid_t pid;
     is_background = 0;
-    char* cmd;
     int i, haveInputFile = 0, haveOutputFile = 0;
     char inputFile[max_line_length], outputFile[max_line_length];
     //NEED TO ADD PROCESS TO ARRAY TO KILL
@@ -309,6 +302,7 @@ void execute_command(int num_args, int* error_num) {
             if(is_background == 1) {
                 waitpid(pid, &status, WNOHANG);
                 printf("background pid is %d\n", pid);
+                //need to get status value
                 fflush(stdout); 
             }
             else {
