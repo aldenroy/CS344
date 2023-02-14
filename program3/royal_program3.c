@@ -188,32 +188,32 @@ void exit_shell(){
 
 void run_status(int *error_num) {
     //fix status
-    int exit_status = 0;
-    int signal_number = 0;
-    int exit_value = 0;
+	int error = 0;
+    int signal = 0;
+    int val;
 
-    int status;
-    waitpid(getpid(), &status, 0);
+	waitpid(getpid(), &status, 0);		// Check the status of the last process
 
-    if (WIFEXITED(status)) {
-        exit_status = WEXITSTATUS(status);
+	if(WIFEXITED(status)){
+        error = WEXITSTATUS(status);	// Return the status of the normally terminated child
     }
-    if (WIFSIGNALED(status)) {
-        signal_number = WTERMSIG(status);
+    else if(WIFSIGNALED(status)){
+        signal = WTERMSIG(status);		// Return the status of an abnormally terminated child        
+    }
+    if(error + signal == 0){
+        val = 0;
+    }
+    else{
+        val = 1;
     }
 
-    if (exit_status + signal_number == 0) {
-        exit_value = 0;
-    } else {
-        exit_value = 1;
+    if(signal == 0) {
+    	printf("exit value %d\n", val);
+        fflush(stdout);        
     }
-
-    if (signal_number == 0) {
-        printf("Exit value: %d\n", exit_value);
-        fflush(stdout);
-    } else {
+    else {
+    	printf("terminated by signal %d\n", signal);
         *error_num = 1;
-        printf("Terminated by signal: %d\n", signal_number);
         fflush(stdout);
     }
 }
