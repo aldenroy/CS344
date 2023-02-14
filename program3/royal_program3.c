@@ -22,6 +22,8 @@ int total_processes = 0;
 int is_background = 0;
 int foreground_only = 1;
 int status;
+struct sigaction sigint;	// SIGINT handler
+struct sigaction sigtstp; // SIGTSTP handler
 //int processes[max_processes]; add once prof tells you this number
 
 //function prototypes
@@ -32,6 +34,7 @@ void exit_shell();   //can't just exit command, need to kill off all processes.
 void run_cd();
 void run_status(int*);
 void execute_command(int, int*);
+void handle_SIGTSTP();
 
 
 int main(){
@@ -39,6 +42,19 @@ int main(){
     //Then we'll parse commands into array.
     //test commands for comments or empty lines.
     //go from there.
+
+    //Set up signal masks
+	sigtstp.sa_handler = handle_SIGTSTP; 	// Direct SIGTSTP to the function handle_SIGTSTP()
+    sigtstp.sa_flags = SA_RESTART; 		// Make sure signals don't interrupt processes
+    sigfillset(&sigtstp.sa_mask);			// Block all catchable signals
+    sigaction(SIGTSTP, &sigtstp, NULL);	// Install signal handler
+
+    //sa_handler works for control c like he was talking about in lecture
+    sigtstp.sa_handler=SIG_IGN;			// Ignore initially
+    sigfillset(&sigtstp.sa_mask); 			// Block all catchable signals
+    sigaction(SIGINT, &sigtstp, NULL);		// Install signal handler
+
+
     printf("$ smallsh\n");
     fflush(stdout);
     char* args_line[max_line_length]; //to get args from command line.
@@ -58,6 +74,32 @@ int main(){
     }
 
     return 0;
+}
+
+void handle_SIGTSTP() {
+    //vlid makes it get one at a time like he said in lecture
+	char* statusMessage;		// String of the message to write to stdout
+	int statusMessageSize = -1;	// For write() messages must also state the number of characters
+	char* promptMessage = ": "; // Also write ': ' since for this case getCommands() won't print it
+	switch(foreground_only) {
+		case 0:
+			statusMessage = "\nExiting foreground-only mode\n";
+			foreground_only = 1;
+			break;
+		case 1:
+			statusMessage = "\nEntering foreground-only mode (& is now ignored)\n";
+			foreground_only = 0;
+			break;
+		default:
+            //if nothing then defult set it to 1.
+			statusMessage = "\nError: foreground_only is not 0 or 1\n";
+			foreground_only = 1;
+	}
+	// Must use reentrant function for custom signal handlers
+	printf("%s\n", statusMessage);
+    fflush(stdout);
+    printf(": ");   //set up printing the command line
+    fflush(stdout);
 }
 
 
@@ -184,6 +226,7 @@ void execute_command(int num_args, int* error_num) {
     char* cmd;
     int i, haveInputFile = 0, haveOutputFile = 0;
     char inputFile[max_line_length], outputFile[max_line_length];
+    //NEED TO ADD PROCESS TO ARRAY TO KILL
     // Check if the command is to be run in the background
     if (strcmp(args[num_args - 1], "&") == 0) {
         // Only allow background execution if not in foreground only mode
@@ -247,9 +290,9 @@ void execute_command(int num_args, int* error_num) {
             }
 
             // Give new CTRL-C handler so foreground processes can be terminated
-            // if(!isBackground) 
-            //     SIGINTAction.sa_handler=SIG_DFL;
-            // sigaction(SIGINT, &SIGINTAction, NULL);
+            if(!is_background) 
+                sigint.sa_handler=SIG_DFL;
+            sigaction(SIGINT, &sigint, NULL);
 
             // Run the non-built-in command
             if(execvp(args[0], args) == -1 ) {
@@ -268,11 +311,9 @@ void execute_command(int num_args, int* error_num) {
                 waitpid(pid, &status, 0);
             }
     }
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        printf("background pid %d is done: ", pid);
+        fflush(stdout);
+        run_status(error_num); 
+	}
 }
-
-
-
-
-//from assignment The exit command exits your shell. It takes no arguments. When this command is run, 
-//your shell must kill any other processes or jobs that your shell has started before it terminates itself.
-//probably gonna need an array of the processes, a count, and then kill them off 1 by one.
