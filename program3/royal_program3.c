@@ -35,7 +35,8 @@ void run_cd();
 void run_status(int*);
 void execute_command(int, int*);
 void handle_SIGTSTP();
-
+void childFork();
+void parentFork(pid_t);
 
 int main(){
     //first things first set up loop to continue till exit status.
@@ -77,29 +78,28 @@ int main(){
 }
 
 void handle_SIGTSTP() {
-    //vlid makes it get one at a time like he said in lecture
 	char* statusMessage;		// String of the message to write to stdout
 	int statusMessageSize = -1;	// For write() messages must also state the number of characters
 	char* promptMessage = ": "; // Also write ': ' since for this case getCommands() won't print it
 	switch(foreground_only) {
 		case 0:
 			statusMessage = "\nExiting foreground-only mode\n";
+			statusMessageSize = 30;
 			foreground_only = 1;
 			break;
 		case 1:
 			statusMessage = "\nEntering foreground-only mode (& is now ignored)\n";
+			statusMessageSize = 50;
 			foreground_only = 0;
 			break;
 		default:
-            //if nothing then defult set it to 1.
-			statusMessage = "\nError: foreground_only is not 0 or 1\n";
+			statusMessage = "\nError: allowBackground is not 0 or 1\n";
+			statusMessageSize = 38;
 			foreground_only = 1;
 	}
 	// Must use reentrant function for custom signal handlers
-	printf("%s\n", statusMessage);
-    fflush(stdout);
-    printf(": ");   //set up printing the command line
-    fflush(stdout);
+	write(STDOUT_FILENO, statusMessage, statusMessageSize);
+	write(STDOUT_FILENO, promptMessage, 2);
 }
 
 
@@ -178,6 +178,9 @@ void check_args(int num_args){
         // printf("%s: No such file or directory\n", args[0]);
         // fflush(stdout);
         execute_command(num_args, &error_num);
+		if(WIFSIGNALED(status) && error_num == 0){ 
+	        run_status(&error_num); 
+	    }
     }
 }
 
@@ -223,6 +226,7 @@ void run_status(int *error_num) {
 
 void execute_command(int num_args, int* error_num) {
     pid_t pid;
+    is_background = 0;
     char* cmd;
     int i, haveInputFile = 0, haveOutputFile = 0;
     char inputFile[max_line_length], outputFile[max_line_length];
@@ -230,7 +234,7 @@ void execute_command(int num_args, int* error_num) {
     // Check if the command is to be run in the background
     if (strcmp(args[num_args - 1], "&") == 0) {
         // Only allow background execution if not in foreground only mode
-        if (foreground_only == 0) {
+        if (foreground_only == 1) {
             is_background = 1;
         }
         // Remove the '&' from the argument list
