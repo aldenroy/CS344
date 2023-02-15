@@ -1,14 +1,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <signal.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <time.h>
+#include <sys/wait.h>
+
 
 #define max_line_length 2048
 #define max_num_args 512
@@ -24,7 +25,6 @@ int foreground_only = 1;
 int status;
 struct sigaction sigint;	// sigint struct
 struct sigaction sigtstp; // sigtstp struct
-//int processes[max_processes]; add once prof tells you this number
 
 //function prototypes
 //Will need custom handlers for 2 signals, SIGINT and SIGTSTP
@@ -43,16 +43,15 @@ int main(){
     //go from there.
 
     //Set up signal masks
-	sigtstp.sa_handler = sigtstp_func; 	// Direct SIGTSTP to the function sigtstp_func()
-    sigtstp.sa_flags = SA_RESTART; 		// Make sure signals don't interrupt processes
-    sigfillset(&sigtstp.sa_mask);			// Block all catchable signals
-    sigaction(SIGTSTP, &sigtstp, NULL);	// Install signal handler
+	sigtstp.sa_handler = sigtstp_func; 	
+    sigtstp.sa_flags = SA_RESTART; 		
+    sigfillset(&sigtstp.sa_mask);			
+    sigaction(SIGTSTP, &sigtstp, NULL);	
 
     //sa_handler works for control c like he was talking about in lecture
-    sigtstp.sa_handler=SIG_IGN;			// Ignore initially
-    sigfillset(&sigtstp.sa_mask); 			// Block all catchable signals
-    sigaction(SIGINT, &sigtstp, NULL);		// Install signal handler
-
+    sigtstp.sa_handler=SIG_IGN;			
+    sigfillset(&sigtstp.sa_mask); 			
+    sigaction(SIGINT, &sigtstp, NULL);		
 
     printf("$ smallsh\n");
     fflush(stdout);
@@ -76,22 +75,21 @@ int main(){
 }
 
 void sigtstp_func() {
-	char* statusMessage;		// String of the message to write to stdout
+	char* output_msg;		// String of the message to write to stdout
 	switch(foreground_only) {
 		case 0:
-			statusMessage = "\nExiting foreground-only mode\n";
+			output_msg = "\nExiting foreground-only mode\n";
 			foreground_only = 1;
 			break;
 		case 1:
-			statusMessage = "\nEntering foreground-only mode (& is now ignored)\n";
+			output_msg = "\nEntering foreground-only mode (& is now ignored)\n";
 			foreground_only = 0;
 			break;
 		default:
-			statusMessage = "\nError: allowBackground is not 0 or 1\n";
+			output_msg = "\nError: foreground_only is not 0 or 1\n";
 			foreground_only = 1;
 	}
-	// Must use reentrant function for custom signal handlers
-    printf("%s\n", statusMessage);
+    printf("%s\n", output_msg);
     fflush(stdout);
 }
 
@@ -192,13 +190,13 @@ void run_status(int *error_num) {
     int signal = 0;
     int val;
 
-	waitpid(getpid(), &status, 0);		// Check the status of the last process
-
+	waitpid(getpid(), &status, 0);	
+    //get status of last process
 	if(WIFEXITED(status)){
-        error = WEXITSTATUS(status);	// Return the status of the normally terminated child
+        error = WEXITSTATUS(status);
     }
     else if(WIFSIGNALED(status)){
-        signal = WTERMSIG(status);		// Return the status of an abnormally terminated child        
+        signal = WTERMSIG(status);	     
     }
     if(error + signal == 0){
         val = 0;
@@ -206,6 +204,7 @@ void run_status(int *error_num) {
     else{
         val = 1;
     }
+    //get the exit vals from this calculation
 
     if(signal == 0) {
     	printf("exit value %d\n", val);
@@ -214,6 +213,7 @@ void run_status(int *error_num) {
     else {
     	printf("terminated by signal %d\n", signal);
         *error_num = 1;
+        //update error_num so it doesn't print the exit value every time a cmd is called.
         fflush(stdout);
     }
 }
@@ -236,24 +236,20 @@ void execute_command(int num_args, int* error_num) {
 
     pid = fork();
     switch (pid) {
-        case -1: // Error
+        case -1:
             perror("Failed to create child process\n");
             exit(1);
             break;
 
-        case 0: //child case
-
-            
-            // Get command arguments
+        case 0: //child
+            //get args
             for(i = 0; args[i] != NULL; i++) {
-                // Input File Arguments
                 if(strcmp(args[i], "<") == 0) {
                     haveInputFile = 1;
                     args[i] = NULL;
                     strcpy(inputFile, args[i+1]);
                     i++;
                 }
-                // Output file Arugments
                 else if(strcmp(args[i], ">") == 0) {
                     haveOutputFile = 1;
                     args[i] = NULL;
@@ -262,7 +258,6 @@ void execute_command(int num_args, int* error_num) {
                 }
             }
 
-            // Pass input file info
             if(haveInputFile) {
                 int inputFileDes = 0;
                 if ((inputFileDes = open(inputFile, O_RDONLY)) < 0) { 
@@ -274,7 +269,6 @@ void execute_command(int num_args, int* error_num) {
                 close(inputFileDes);
             }
 
-            // Pass output file info
             if(haveOutputFile) {
                 int outputFileDes = 0;
                 if((outputFileDes = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0) {
@@ -286,19 +280,18 @@ void execute_command(int num_args, int* error_num) {
                 close(outputFileDes);
             }
 
-            // Give new CTRL-C handler so foreground processes can be terminated
             if(!is_background) 
                 sigint.sa_handler=SIG_DFL;
             sigaction(SIGINT, &sigint, NULL);
 
-            // Run the non-built-in command
             if(execvp(args[0], args) == -1 ) {
                 perror(args[0]);
                 exit(1); 
             }
+            //run the commands
 
         default: //parent case
-            // If the command is not to be run in the background, wait for it to finish
+            //wait for process to finish
             if(is_background == 1) {
                 waitpid(pid, &status, WNOHANG);
                 printf("background pid is %d\n", pid);
