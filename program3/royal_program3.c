@@ -20,6 +20,7 @@
 //global scope vars
 char* args[max_num_args];
 int total_processes = 0;
+int processes[1000000000];
 int is_background = 0;
 int foreground_only = 1;
 int status;
@@ -68,7 +69,7 @@ int main(){
         for(int i = 0; i < num_args; i++){
             args[i] = NULL;
         }
-        //do something to test check the command and do that appropiate thing with them
+        //what i wanted to do with this was basically refresh the args for the grading script
     }
 
     return 0;
@@ -133,11 +134,14 @@ int parse_commands(char* args_line){
 
 void check_args(int num_args){
     char currDir[128];
+    //should be the max name length
     int error_num;	
     //okay so first i need to check if the first character is a comment or a new line to ignore, then  check the first args
     //and do whatever needs to be done with them.
     if(args[0][0] == '#'){
         //do nothing, skip this whole function
+        printf("\n");
+        fflush(stdout);
     }
     else if(args[0][0] == '\n'){
         //also do nothing
@@ -161,17 +165,9 @@ void check_args(int num_args){
         run_status(&error_num);
     }
     else{
-        //Whenever a non-built in command is received, the parent (i.e., smallsh) will fork off a child.
-        //The child will use a function from the exec() family of functions to run the command.
-        //figure out later
-        //for now just say none exists
-        //this is where you'll want to start forking to run the function already in there
-        // printf("%s: No such file or directory\n", args[0]);
-        // fflush(stdout);
+        //this is where we will run the command for all other functions
+        //it will fork of the process and run execvp.
         execute_command(num_args, &error_num);
-		if(WIFSIGNALED(status) && error_num == 0){ 
-	        run_status(&error_num); 
-	    }
     }
 }
 
@@ -179,9 +175,15 @@ void exit_shell(){
     if(total_processes == 0){
         exit(0);
     }
+    else{
+        for(int i = 0; i < total_processes; i++){
+            kill(processes[i], SIGTERM);
+        }
+        exit(1);
+    }
     //Exit syntax about what number to send from https://www.tutorialspoint.com/c_standard_library/c_function_exit.htm
     //with no processes we can just exit with 0 without killing any processes.
-    //set up later, but if there are processes, kill off each one in the array
+    //Kills off each new process
 }
 
 void run_status(int *error_num) {
@@ -221,70 +223,70 @@ void run_status(int *error_num) {
 void execute_command(int num_args, int* error_num) {
     pid_t pid;
     is_background = 0;
-    int i, haveInputFile = 0, haveOutputFile = 0;
-    char inputFile[max_line_length], outputFile[max_line_length];
+    int input_received = 0;
+    int output_received = 0;
+    char input[max_line_length], output[max_line_length];
     //NEED TO ADD PROCESS TO ARRAY TO KILL
-    // Check if the command is to be run in the background
+    //check if the command is to be run in the background
     if (strcmp(args[num_args - 1], "&") == 0) {
-        // Only allow background execution if not in foreground only mode
+        //background if not in foreground mode
         if (foreground_only == 1) {
             is_background = 1;
         }
-        // Remove the '&' from the argument list
+        //takes away the & from the args
         args[num_args - 1] = NULL;
     }
 
     pid = fork();
-    switch (pid) {
+    processes[total_processes] = pid;
+    total_processes++;
+    //make sure to add processes to kill later
+    switch (pid){
         case -1:
             perror("Failed to create child process\n");
             exit(1);
             break;
 
-        case 0: //child
+        case 0://child process section
             //get args
-            for(i = 0; args[i] != NULL; i++) {
-                if(strcmp(args[i], "<") == 0) {
-                    haveInputFile = 1;
+            for(int i = 0; args[i] != NULL; i++){
+                if(strcmp(args[i], "<") == 0){
+                    input_received = 1;
                     args[i] = NULL;
-                    strcpy(inputFile, args[i+1]);
+                    strcpy(input, args[i+1]);
                     i++;
                 }
-                else if(strcmp(args[i], ">") == 0) {
-                    haveOutputFile = 1;
+                else if(strcmp(args[i], ">") == 0){
+                    output_received = 1;
                     args[i] = NULL;
-                    strcpy(outputFile, args[i+1]);
+                    strcpy(output, args[i + 1]);
                     i++;
                 }
             }
 
-            if(haveInputFile) {
-                int inputFileDes = 0;
-                if ((inputFileDes = open(inputFile, O_RDONLY)) < 0) { 
-                    fprintf(stderr, "cannot open %s for input\n", inputFile);
+            if(input_received){
+                int input_descriptor = 0;
+                if ((input_descriptor = open(input, O_RDONLY)) < 0) { 
+                    fprintf(stderr, "can't open %s for input\n", input);
                     fflush(stdout); 
                     exit(1); 
                 }  
-                dup2(inputFileDes, 0);
-                close(inputFileDes);
+                dup2(input_descriptor, 0);
+                close(input_descriptor);
             }
 
-            if(haveOutputFile) {
-                int outputFileDes = 0;
-                if((outputFileDes = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0) {
-                    fprintf(stderr, "cannot open %s for output\n", outputFile);
+            if(output_received){
+                int output_descriptor = 0;
+                if((output_descriptor = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0) {
+                    fprintf(stderr, "can't open %s for output\n", output);
                     fflush(stdout); 
                     exit(1); 
                 }
-                dup2(outputFileDes, 1);
-                close(outputFileDes);
+                dup2(output_descriptor, 1);
+                close(output_descriptor);
             }
 
-            if(!is_background) 
-                sigint.sa_handler=SIG_DFL;
-            sigaction(SIGINT, &sigint, NULL);
-
-            if(execvp(args[0], args) == -1 ) {
+            if(execvp(args[0], args) == -1 ){
                 perror(args[0]);
                 exit(1); 
             }
@@ -292,17 +294,18 @@ void execute_command(int num_args, int* error_num) {
 
         default: //parent case
             //wait for process to finish
-            if(is_background == 1) {
+            if(is_background == 1){
                 waitpid(pid, &status, WNOHANG);
+                //Flags from https://www.gnu.org/software/libc/manual/html_node/Process-Completion.html
                 printf("background pid is %d\n", pid);
                 //need to get status value
                 fflush(stdout); 
             }
-            else {
+            else{
                 waitpid(pid, &status, 0);
             }
     }
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+	while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         printf("background pid %d is done: ", pid);
         fflush(stdout);
         run_status(error_num); 
