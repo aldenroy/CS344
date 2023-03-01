@@ -1,0 +1,9 @@
+[Time measured by the time command]
+1-process: 276.04 (seconds) on avg.
+2-process: 288.78 (seconds) on avg.
+4-process: 287.376 (seconds) on avg.
+
+[Time measured by the Python time()]
+1-process: 265.673 (seconds) on avg.
+2-process: 287.58 (seconds) on avg.
+4-process: 286.186 (seconds) on avg.

@@ -1,6 +1,7 @@
 """
     Code for training and testing an MNIST handwritten digit classifier.
 """
+import time
 import json
 import argparse
 from tqdm import tqdm
@@ -128,6 +129,8 @@ def run_traintest(args):
 
         # : collect the data to store
         train_records = []
+        start_time = time.time()
+        
 
         # : run training
         for epoch in range(1, args.epoch+1):
@@ -153,6 +156,8 @@ def run_traintest(args):
                 torch.save(store_data, "mnist_model.pth")
                 print (' : Store the best model [{:.2f} -> {:.2f}]'.format(_best_acc, test_acc))
                 _best_acc = test_acc
+                elapsed = time.time() - start_time
+                print (' : Time elapsed to train a model {:.2f} seconds'.format(elapsed))
 
     # run testing
     else:

@@ -1,0 +1,15 @@
+[Time measured by the time command]
+1-process: TODO (seconds) on avg.
+273.68 277.91 276.53
+2-process: TODO (seconds) on avg.
+292.04 292.12 282.18
+4-process: TODO (seconds) on avg.
+287.72 282.17 292.24
+
+[Time measured by the Python time()]
+1-process: TODO (seconds) on avg.
+245.02 276.66 275.34
+2-process: TODO (seconds) on avg.
+290.84 290.98 280.92
+4-process: TODO (seconds) on avg.
+286.58 281.00 290.98
