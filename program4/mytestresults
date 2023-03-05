@@ -19,18 +19,163 @@ key20 exists!
 #-----------------------------------------
 #enc_client plaintext1 key20 $encport
 #10 POINTS: Should return error about too-short key
+ERROR reading from socket: Socket operation on non-socket
 Key is too short!
 : Success
 Key is too short
-!ERROR reading from socket: Socket operation on non-socket
-SERVER: Connected to client running at host 32512 port 41494
-SERVER: I received this from the client: ""
-
+!
 #-----------------------------------------
 #enc_client plaintext1 key70000 $encport
 #20 POINTS: Should return encrypted version of plaintext1
-ERROR reading from socket: Socket operation on non-socket
-SERVER: Connected to client running at host 32512 port 41494
-SERVER: I received this from the client: ""
-SERVER: Connected to client running at host 32512 port 41496
-SERVER: I received this from the client: "otp_enc"
+ARP ZXZFQRCRKKMFHBPB GL GUASDHJVRUJW
+SERVER: Connected to client running at host 32512 port 38272
+
+#-----------------------------------------
+#enc_client plaintext1 key70000 $encport > ciphertext1
+SERVER: Connected to client running at host 32512 port 38272
+SERVER: Connected to client running at host 32512 port 38274
+#10 POINTS: ciphertext1 must exist
+ciphertext1 exists!
+
+#-----------------------------------------
+#10 POINTS: ciphertext1 must be same number of chars as source
+#wc -m plaintext1
+37 plaintext1
+#Should be same: wc -m ciphertext1
+37 ciphertext1
+
+#-----------------------------------------
+#5 POINTS: ciphertext1 should look encrypted
+ARP ZXZFQRCRKKMFHBPB GL GUASDHJVRUJW
+
+#-----------------------------------------
+#dec_client ciphertext1 key70000 $encport
+#5 POINTS: Should fail giving error that dec_client cannot use enc_server
+Bad client
+SERVER: Connected to client running at host 32512 port 38272
+SERVER: Connected to client running at host 32512 port 38274
+SERVER: Connected to client running at host 32512 port 38278
+
+#-----------------------------------------
+#20 POINTS: should return decrypted ciphertext1 that matches source
+#cat plaintext1
+THE RED GOOSE FLIES AT MIDNIGHT STOP
+#dec_client ciphertext1 key70000 $decport
+THE RED GOOSE FLIES AT MIDNIGHT STOP
+
+#-----------------------------------------
+#dec_client ciphertext1 key70000 $decport > plaintext1_a
+#10 POINTS: plaintext1_a must exist
+plaintext1_a exists!
+
+#-----------------------------------------
+#cmp plaintext1 plaintext1_a
+#5 POINTS: plaintext1 must be the same as plaintext1_a:
+#echo $? should be == 0, which means the cmp succeeded!
+0
+
+#-----------------------------------------
+#20 POINTS: concurrent test of encryption - look for 4 properly-sized ciphertext# files, or 5 where the 5th is 0 bytes
+#5 POINTS: Should be only one error about plaintext5 being bad
+Ten second sleep, your program must complete in this time
+File contains bad characters!
+: Success
+SERVER: Connected to client running at host 32512 port 38272
+SERVER: Connected to client running at host 32512 port 38274
+SERVER: Connected to client running at host 32512 port 38278
+SERVER: Connected to client running at host 32512 port 38280
+SERVER: Connected to client running at host 32512 port 38272
+SERVER: Connected to client running at host 32512 port 38274
+SERVER: Connected to client running at host 32512 port 38278
+SERVER: Connected to client running at host 32512 port 38280
+SERVER: Connected to client running at host 32512 port 38288
+SERVER: Connected to client running at host 32512 port 38272
+SERVER: Connected to client running at host 32512 port 38274
+SERVER: Connected to client running at host 32512 port 38278
+SERVER: Connected to client running at host 32512 port 38280
+SERVER: Connected to client running at host 32512 port 38288
+SERVER: Connected to client running at host 32512 port 38290
+SERVER: Connected to client running at host 32512 port 38272
+SERVER: Connected to client running at host 32512 port 38274
+SERVER: Connected to client running at host 32512 port 38278
+SERVER: Connected to client running at host 32512 port 38280
+SERVER: Connected to client running at host 32512 port 38288
+SERVER: Connected to client running at host 32512 port 38290
+SERVER: Connected to client running at host 32512 port 38292
+total 1480
+drwx------. 2 royal upg17928   791 Mar  3 13:45 ./
+drwx------. 7 royal upg17928   271 Feb 20 13:02 ../
+-rwx------. 1 royal upg17928    37 Mar  3 13:45 ciphertext1
+-rwx------. 1 royal upg17928   317 Mar  3 13:45 ciphertext2
+-rwx------. 1 royal upg17928    17 Mar  3 13:45 ciphertext3
+-rwx------. 1 royal upg17928 69333 Mar  3 13:45 ciphertext4
+-rwx------. 1 royal upg17928     0 Mar  3 13:45 ciphertext5
+-rwx------. 1 royal upg17928   158 Mar  1 08:44 compileall
+-rwx--x---. 1 royal upg17928 13864 Mar  3 13:44 dec_client
+-rwx------. 1 royal upg17928  5268 Mar  3 13:43 dec_client.c
+-rwx--x---. 1 royal upg17928 13456 Mar  3 13:44 dec_server
+-rwx------. 1 royal upg17928  5746 Mar  3 13:44 dec_server.c
+-rwx--x---. 1 royal upg17928 13816 Mar  3 13:44 enc_client
+-rwx------. 1 royal upg17928  5804 Mar  3 13:43 enc_client.c
+-rwx--x---. 1 royal upg17928 13584 Mar  3 13:44 enc_server
+-rwx------. 1 royal upg17928  5621 Mar  3 13:31 enc_server.c
+-rwx------. 1 royal upg17928    21 Mar  3 13:45 key20
+-rwx------. 1 royal upg17928 70001 Mar  3 13:45 key70000
+-rwx--x---. 1 royal upg17928  8640 Mar  3 13:44 keygen
+-rwx------. 1 royal upg17928   487 Mar  1 08:48 keygen.c
+-rwx------. 1 royal upg17928    11 Feb 28 11:42 mykey
+-rwx------. 1 royal upg17928    11 Feb 28 11:43 myshortkey
+-rwx------. 1 royal upg17928  4220 Mar  3 13:45 mytestresults
+-rwx------. 1 royal upg17928  5388 Feb 20 13:22 p5testscript
+-rwx------. 1 royal upg17928    37 Feb 20 12:59 plaintext1
+-rwx------. 1 royal upg17928   317 Feb 20 12:59 plaintext2
+-rwx------. 1 royal upg17928    17 Feb 20 12:59 plaintext3
+-rwx------. 1 royal upg17928 69333 Feb 20 12:59 plaintext4
+-rwx------. 1 royal upg17928    42 Feb 20 12:59 plaintext5
+-rwx------. 1 royal upg17928  5670 Mar  1 10:26 temp_enc_server.c
+
+#-----------------------------------------
+#15 POINTS: concurrent test of decryption - look for 4 plaintext#_a files that match the plaintext# files
+#Ten second sleep, your program must complete in this time
+total 1792
+drwx------. 2 royal upg17928   911 Mar  3 13:45 ./
+drwx------. 7 royal upg17928   271 Feb 20 13:02 ../
+-rwx------. 1 royal upg17928    37 Mar  3 13:45 ciphertext1
+-rwx------. 1 royal upg17928   317 Mar  3 13:45 ciphertext2
+-rwx------. 1 royal upg17928    17 Mar  3 13:45 ciphertext3
+-rwx------. 1 royal upg17928 69333 Mar  3 13:45 ciphertext4
+-rwx------. 1 royal upg17928     0 Mar  3 13:45 ciphertext5
+-rwx------. 1 royal upg17928   158 Mar  1 08:44 compileall
+-rwx--x---. 1 royal upg17928 13864 Mar  3 13:44 dec_client
+-rwx------. 1 royal upg17928  5268 Mar  3 13:43 dec_client.c
+-rwx--x---. 1 royal upg17928 13456 Mar  3 13:44 dec_server
+-rwx------. 1 royal upg17928  5746 Mar  3 13:44 dec_server.c
+-rwx--x---. 1 royal upg17928 13816 Mar  3 13:44 enc_client
+-rwx------. 1 royal upg17928  5804 Mar  3 13:43 enc_client.c
+-rwx--x---. 1 royal upg17928 13584 Mar  3 13:44 enc_server
+-rwx------. 1 royal upg17928  5621 Mar  3 13:31 enc_server.c
+-rwx------. 1 royal upg17928    21 Mar  3 13:45 key20
+-rwx------. 1 royal upg17928 70001 Mar  3 13:45 key70000
+-rwx--x---. 1 royal upg17928  8640 Mar  3 13:44 keygen
+-rwx------. 1 royal upg17928   487 Mar  1 08:48 keygen.c
+-rwx------. 1 royal upg17928    11 Feb 28 11:42 mykey
+-rwx------. 1 royal upg17928    11 Feb 28 11:43 myshortkey
+-rwx------. 1 royal upg17928  6202 Mar  3 13:45 mytestresults
+-rwx------. 1 royal upg17928  5388 Feb 20 13:22 p5testscript
+-rwx------. 1 royal upg17928    37 Feb 20 12:59 plaintext1
+-rwx------. 1 royal upg17928    37 Mar  3 13:45 plaintext1_a
+-rwx------. 1 royal upg17928   317 Feb 20 12:59 plaintext2
+-rwx------. 1 royal upg17928   317 Mar  3 13:45 plaintext2_a
+-rwx------. 1 royal upg17928    17 Feb 20 12:59 plaintext3
+-rwx------. 1 royal upg17928    17 Mar  3 13:45 plaintext3_a
+-rwx------. 1 royal upg17928 69333 Feb 20 12:59 plaintext4
+-rwx------. 1 royal upg17928 69333 Mar  3 13:45 plaintext4_a
+-rwx------. 1 royal upg17928    42 Feb 20 12:59 plaintext5
+-rwx------. 1 royal upg17928  5670 Mar  1 10:26 temp_enc_server.c
+
+#-----------------------------------------
+#Cleaning up - ignore Operation Not Permitted errors
+./p5testscript: line 141: 159067 Terminated              ./dec_server $decport
+./p5testscript: line 143: 159066 Terminated              ./enc_server $encport
+
+#SCRIPT COMPLETE
