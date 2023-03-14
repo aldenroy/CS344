@@ -1,47 +1,24 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <sys/types.h> 
 #include <sys/socket.h>
+#include <string.h>
 #include <netinet/in.h>
 
-void error(const char *msg) { perror(msg); exit(1); } // Error function used for reporting issues
+void error(const char *msg) {
+	perror(msg);
+	exit(1);
+} 
 
-int charToInt (char c){ //convert a character to an integer
-	if (c == ' '){
+int convert_char (char x){
+	if (x == ' '){
 		return 26;
 	}
 	else {
-		return (c - 'A');
+		return (x - 'A');
 	}
 	return 0;
-}
-
-char intToChar(int i){ //convert an integer to a character
-	if (i == 26){
-		return ' ';
-	}
-	else {
-		return (i + 'A');
-	}
-}
-
-void decode(char message[], char key[]){ //decode the message
-	  int i;
-	  char n;
-
-	  for (i=0; message[i] != '\n' ; i++){
-
-	  		n = charToInt(message[i]) - charToInt(key[i]);
-	  		if (n<0){
-	  			n += 27;
-	  		}
-	  		message[i] = intToChar(n);
-
-	  }
-	  message[i] = '\0';
-	  return;
 }
 
 void setupAddressStruct(struct sockaddr_in* address, int portNumber){
@@ -57,9 +34,18 @@ void setupAddressStruct(struct sockaddr_in* address, int portNumber){
 	address->sin_addr.s_addr = INADDR_ANY;
 }
 
+char convert_int(int x){
+	if (x == 26){
+		return ' ';
+	}
+	else {
+		return (x + 'A');
+	}
+}
+
 int main(int argc, char *argv[]) //main function where server is initialized and communicates with client
 {
-	int connectionSocket, charsRead, establishedConnectionFD, status, portNumber;
+	int connectionSocket, charsRead, connection, status;
 	char buffer[256];
 	struct sockaddr_in serverAddress, clientAddress;
 	socklen_t sizeOfClientInfo = sizeof(clientAddress);
@@ -79,7 +65,7 @@ int main(int argc, char *argv[]) //main function where server is initialized and
 	// Set up the address struct for the server socket
 	setupAddressStruct(&serverAddress, atoi(argv[1]));
 
-	// Enable the socket to begin listening
+	// Associate the socket to the port
 	if (bind(listenSocket, 
 			(struct sockaddr *)&serverAddress, 
 			sizeof(serverAddress)) < 0){
@@ -88,16 +74,13 @@ int main(int argc, char *argv[]) //main function where server is initialized and
 
 	// Start listening for connetions. Allow up to 5 connections to queue up
 	listen(listenSocket, 5); 
-		//here
-	while(1){ //server infinite loop
+	// Accept a connection, blocking if one is not available until one connects
+	while(1){ 
+		sizeOfClientInfo = sizeof(clientAddress); //size of address for client
+		connection = accept(listenSocket, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);
+		if (connection < 0) error("ERROR on accept");
 
-								   // Accept a connection, blocking if one is not available until one connects
-		sizeOfClientInfo = sizeof(clientAddress); // Get the size of the address for the client that will connect
-		establishedConnectionFD = accept(listenSocket, (struct sockaddr *)&clientAddress, &sizeOfClientInfo); // Accept
-		if (establishedConnectionFD < 0) error("ERROR on accept");
-
-		//server loop
-		// Get the message from the client and display it
+		//create new process with fork when connection is made.
 		pid = fork();
 		switch (pid){
 			case -1:{
@@ -105,77 +88,78 @@ int main(int argc, char *argv[]) //main function where server is initialized and
 			}
 			case 0:{
 				char buffer[1024];
-				char* encryptedMessage[100000];
 				char message[100000];
 				char key[100000];
-				int charsWritten = 0;
-				memset(buffer, '\0', 1024); //CHECK FOR RIGHT CONNECTION
+				int write_total = 0;
+				memset(buffer, '\0', 1024);
 				charsRead = 0;
-				while(charsRead == 0)
-					charsRead = recv(establishedConnectionFD, buffer, 1023, 0); // Read the client's message from the socket
-				if (charsRead < 0) error("ERROR reading from socket");
-					//printf("SERVER: I received this from the client: \"%s\"\n", buffer);
+				
+				while(charsRead == 0){
+					charsRead = recv(connection, buffer, 1023, 0);
+					//checks clients message					
+				}
+
+				if(charsRead < 0){
+					error("ERROR reading from socket");
+				} 
 				if(strcmp(buffer, "otp_dec") != 0){
-					charsRead = send(establishedConnectionFD, "no", 2, 0);
+					charsRead = send(connection, "no", 2, 0);
 					exit(2);
 				}else{
-					memset(buffer, '\0', 1024); //clear buffer
-					charsRead = send(establishedConnectionFD, "yes", 3, 0); //SEND RESPONSE
+					memset(buffer, '\0', 1024);
+					charsRead = send(connection, "yes", 3, 0);
+					//send response back
 					charsRead = 0;
-					while(charsRead == 0){ //RECEIVE FILE LENGTH
-						charsRead = recv(establishedConnectionFD, buffer, sizeof(buffer)-1, 0); //RECEIVE FILE LENGTH
-						//printf("%d\n", charsRead);
-
+					while(charsRead == 0){
+						charsRead = recv(connection, buffer, sizeof(buffer)-1, 0);
+						//get file lengths to check
 					}
-					//printf("buffer on server: %s", buffer);
+					charsRead = send(connection, "cont", 4, 0);
+					charsRead = 0;
+					int sent_total = 0;					
+					
 					int size = atoi(buffer);
-					//printf("size of file on server: %d\n", size);
 
-					charsRead = send(establishedConnectionFD, "cont", 4, 0);//continue
-					charsRead = 0;
-					int charsSent = 0;
-					//printf("size: %d", size);
 					while(charsRead < size){
-						memset(buffer, '\0', 1024); //clear buffer
-						charsSent = recv(establishedConnectionFD, buffer, sizeof(buffer)-1, 0); //RECEIVE THE MESSAGES
-						charsRead += charsSent;
-						charsSent = 0;
+						memset(buffer, '\0', 1024); 
+						sent_total = recv(connection, buffer, sizeof(buffer)-1, 0);
+						charsRead += sent_total;
+						sent_total = 0;
 						strcat(message, buffer);
-						//printf("charsRead: %d\n", charsRead);
-						memset(buffer, '\0', 1024); //clear buffer
-						//charsWritten = send(establishedConnectionFD, "next", 4, 0); //ask for more
+						memset(buffer, '\0', 1024);
+						//receives messages needed and clears buffer like example code says.
 					}
-					//printf("%d ", charsRead);
-					//printf("%s\n", message);
-					//charsWritten = send(establishedConnectionFD, "givekey", 7, 0);
 					charsRead = 0;
-					charsSent = 0;
-					//printf("size: %d", size);
+					sent_total = 0;
+
 					while(charsRead < size){
-						memset(buffer, '\0', 1024); //clear buffer
-						charsSent = recv(establishedConnectionFD, buffer, sizeof(buffer)-1, 0); //RECEIVE THE MESSAGES
-						charsRead += charsSent;
-						charsSent = 0;
+						memset(buffer, '\0', 1024);
+						sent_total = recv(connection, buffer, sizeof(buffer)-1, 0);
+						charsRead += sent_total;
+						sent_total = 0;
 						strcat(key, buffer);
-						//printf("charsRead: %d\n", charsRead);
 						memset(buffer, '\0', 1024); //clear buffer
 					}
-					//printf("%s\n", message);
-					//printf("%s", key);
-					//printf("ENCRYPTED TEXT:\n\n\n\n\n");
 
-					//encrypt
-					decode(message, key);
-					//printf("%s\n", message);
-					memset(buffer, '\0', 1024); //clear buffer
+					//same situation as above but for the key instead of the message this time.
+					//decryption step
+					int i;
+					char curr;
+					for (i=0; message[i] != '\n' ; i++){
+							curr = convert_char(message[i]) - convert_char(key[i]);
+							if (curr < 0){
+								curr += 27;
+							}
+							message[i] = convert_int(curr);
+					}
+					message[i] = '\0';
+					memset(buffer, '\0', 1024);
+					write_total = 0;
 
-					//SEND BACK TO CLIENT
-
-					charsWritten = 0;
-					while(charsWritten < size){
-						memset(buffer, '\0', sizeof(buffer)); //clear out buffer
-						charsWritten += send(establishedConnectionFD, message, sizeof(message), 0);
-						memset(buffer, '\0', sizeof(buffer)); //clear out buffer						
+					while(write_total < size){
+						memset(buffer, '\0', sizeof(buffer));
+						write_total += send(connection, message, sizeof(message), 0);
+						memset(buffer, '\0', sizeof(buffer));					
 					}	
 
 					exit(0);
@@ -186,8 +170,8 @@ int main(int argc, char *argv[]) //main function where server is initialized and
 				pid_t actualpid = waitpid(pid, &status, WNOHANG);
 			}
 		}
-		close(establishedConnectionFD); // Close the existing socket which is connected to the client
+		close(connection);//Close the connection socket for this client
 	}
-	close(listenSocket); // Close the listening socket
+	close(listenSocket); //Close the listening socket
 	return 0;
 }
